@@ -14,17 +14,18 @@
 //! Both the `Writer` and the `Reader`s hold a reference count over the list,
 //! which is deallocated when the `Writer` and all the `Reader`s are dropped.
 
-use std::{
+#![no_std]
+extern crate alloc;
+
+use alloc::{boxed::Box, sync::Arc};
+use core::{
     alloc::{Layout, LayoutError},
     cell::UnsafeCell,
     marker::PhantomData,
-    mem::MaybeUninit,
+    mem::{self, MaybeUninit},
     pin::Pin,
-    ptr::{null, NonNull},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
+    ptr::{self, NonNull},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// Nodes of the list, of fixed size.
@@ -51,15 +52,15 @@ impl<T> Node<T> {
 
         assert_ne!(layout.size(), 0);
         // SAFETY: layout is not zero-sized (it's got a pointer in it at the very least)
-        let buf = unsafe { std::alloc::alloc(layout) };
+        let buf = unsafe { alloc::alloc::alloc(layout) };
 
         let this = Self::from_raw_with_size_mut(buf.cast(), size);
 
         // SAFETY: we just allocated `this`, it's ok to "dereference"
-        let this_next = unsafe { std::ptr::addr_of!((*this).next) };
+        let this_next = unsafe { ptr::addr_of!((*this).next) };
 
         // SAFETY: raw_get is specifically for initializing UnsafeCells
-        unsafe { UnsafeCell::raw_get(this_next).write(null()) };
+        unsafe { UnsafeCell::raw_get(this_next).write(ptr::null()) };
 
         // SAFETY: this points to a globally-allocated, initialized Self
         Ok(unsafe { Box::from_raw(this) })
@@ -68,13 +69,13 @@ impl<T> Node<T> {
     /// Returns a `*const Node` with size `size` given a `*const ()` to its
     /// allocation.
     fn from_raw_with_size(this: *const (), size: usize) -> *const Self {
-        std::ptr::slice_from_raw_parts(this, size) as *const Self
+        ptr::slice_from_raw_parts(this, size) as *const Self
     }
 
     /// Returns a `*mut Node` with size `size` given a `*mut ()` to its
     /// allocation.
     fn from_raw_with_size_mut(this: *mut (), size: usize) -> *mut Self {
-        std::ptr::slice_from_raw_parts_mut(this, size) as *mut Self
+        ptr::slice_from_raw_parts_mut(this, size) as *mut Self
     }
 }
 
@@ -138,7 +139,7 @@ pub fn new<T>() -> (Writer<T>, Reader<T>) {
     // head must be initialized even if we won't ever read it before it's
     // written onto
     let inner = Arc::new(List {
-        head: UnsafeCell::new(null()),
+        head: UnsafeCell::new(ptr::null()),
         size: AtomicUsize::new(0),
         _phantom: PhantomData,
     });
@@ -146,7 +147,7 @@ pub fn new<T>() -> (Writer<T>, Reader<T>) {
     (
         Writer {
             inner: inner.clone(),
-            tail: null(),
+            tail: ptr::null(),
         },
         Reader { inner },
     )
@@ -155,7 +156,7 @@ pub fn new<T>() -> (Writer<T>, Reader<T>) {
 impl<T> Writer<T> {
     /// Appends `value` to the list.
     pub fn push(&mut self, value: T) {
-        if std::mem::size_of::<T>() == 0 {
+        if mem::size_of::<T>() == 0 {
             assert!(self.inner.size.load(Ordering::Relaxed) < usize::MAX);
             // SAFETY: value is zero-sized
             unsafe { NonNull::<T>::dangling().as_ptr().write(value) };
@@ -208,7 +209,7 @@ impl<T> Reader<T> {
         Iter {
             reader: self,
             next: 0,
-            node: null(),
+            node: ptr::null(),
         }
     }
 
@@ -260,7 +261,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
             return None;
         }
 
-        if std::mem::size_of::<T>() == 0 {
+        if mem::size_of::<T>() == 0 {
             self.next += 1;
             return Some(unsafe { Pin::new_unchecked(NonNull::dangling().as_ref()) });
         }
@@ -312,9 +313,9 @@ impl<'a, T> Iterator for Iter<'a, T> {
 impl<T> Drop for List<T> {
     fn drop(&mut self) {
         let mut size = self.size.swap(0, Ordering::Relaxed);
-        let head = std::mem::replace(self.head.get_mut(), null());
+        let head = mem::replace(self.head.get_mut(), ptr::null());
 
-        if std::mem::size_of::<T>() == 0 {
+        if mem::size_of::<T>() == 0 {
             for _ in 0..size {
                 unsafe { NonNull::<T>::dangling().as_ptr().drop_in_place() };
             }
@@ -395,7 +396,7 @@ mod test {
     fn drop_count() {
         let (mut writer, reader) = new();
 
-        let sentinel = std::sync::Arc::new(());
+        let sentinel = Arc::new(());
 
         // halfway through a block
         for _ in 0..((8 << SHIFT) + 6) {
