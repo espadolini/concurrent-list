@@ -53,6 +53,9 @@ impl<T> Node<T> {
         assert_ne!(layout.size(), 0);
         // SAFETY: layout is not zero-sized (it's got a pointer in it at the very least)
         let buf = unsafe { alloc::alloc::alloc(layout) };
+        if buf.is_null() {
+            alloc::alloc::handle_alloc_error(layout);
+        }
 
         let this = Self::from_raw_with_size_mut(buf.cast(), size);
 
