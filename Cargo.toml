@@ -1,8 +1,12 @@
 [package]
 name = "concurrent-list"
-version = "0.1.0"
-edition = "2018"
+version = "0.0.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition = "2021"
+rust-version = "1.56"
+
+description = "An append-only, single-writer multi-reader unrolled linked list"
+repository = "https://github.com/espadolini/concurrent-list"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
