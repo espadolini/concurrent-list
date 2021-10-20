@@ -2,6 +2,8 @@
 
 An append-only, single-writer multi-reader unrolled linked list.
 
+The MSRV (Minimum Supported Rust Version) is 1.56, for [`UnsafeCell::raw_get`](https://doc.rust-lang.org/std/cell/struct.UnsafeCell.html#method.raw_get).
+
 ## License
 
 Licensed under either of
