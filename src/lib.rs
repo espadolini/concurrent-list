@@ -329,7 +329,7 @@ impl<T> Drop for List<T> {
 
         if !head.is_null() {
             // SAFETY: head points to a valid Node<T>
-            let mut node: Box<Node<T>> = unsafe { Box::from_raw(head) };
+            let node: &mut Node<T> = unsafe { &mut *head };
 
             let initialized = node.data.len().min(size);
             for v in &mut node.data[0..initialized] {
@@ -342,11 +342,14 @@ impl<T> Drop for List<T> {
             size -= initialized;
 
             head = Node::from_raw_with_size_mut(*node.next.get_mut() as *mut (), 1 << SHIFT);
+
+            // SAFETY: node was allocated from the global allocator
+            unsafe { Box::from_raw(node) };
         }
 
         while !head.is_null() {
             // SAFETY: head points to a valid Node<T>
-            let mut node: Box<Node<T>> = unsafe { Box::from_raw(head) };
+            let node: &mut Node<T> = unsafe { &mut *head };
 
             let initialized = node.data.len().min(size);
             for v in &mut node.data[0..initialized] {
@@ -360,6 +363,9 @@ impl<T> Drop for List<T> {
 
             head =
                 Node::from_raw_with_size_mut(*node.next.get_mut() as *mut (), node.data.len() * 2);
+
+            // SAFETY: node was allocated from the global allocator
+            unsafe { Box::from_raw(node) };
         }
     }
 }
