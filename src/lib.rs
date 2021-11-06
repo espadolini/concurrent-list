@@ -111,7 +111,7 @@ struct List<T> {
     size: AtomicUsize,
 
     /// Marker for typechecking purposes.
-    _phantom: PhantomData<*mut Node<T>>,
+    _phantom: PhantomData<T>,
 }
 
 /// Write half of a `concurrent_list`; can only [`push()`] a value to the end of
