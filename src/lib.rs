@@ -370,7 +370,11 @@ impl<T> Drop for List<T> {
     }
 }
 
+// we require Send + Sync for consistency even though the Writer half probably
+// only requires Send; all of these require Send because we might drop the
+// values in a different thread than the Writer's
 unsafe impl<T: Send + Sync> Send for Writer<T> {}
+// Writer's one method requires &mut Self
 unsafe impl<T: Send + Sync> Sync for Writer<T> {}
 
 unsafe impl<T: Send + Sync> Send for Reader<T> {}
